@@ -27,6 +27,7 @@ function getCategorieLabel(profile) {
   return profile.categorie || '';
 }
 
+// ── SETTINGS MODAL ──
 function SettingsModal({ profile, userId, onClose, onUpdate, onSignOut }) {
   const [section, setSection] = useState('main');
   const [pseudo, setPseudo] = useState(profile.pseudo || '');
@@ -253,6 +254,7 @@ function SettingsModal({ profile, userId, onClose, onUpdate, onSignOut }) {
   );
 }
 
+// ── PAGE PROFIL ──
 export default function Profile({ userId, existingProfile, onProfileCreated, onProfileUpdated, showSettings, onCloseSettings, onSignOut }) {
   const [pronos, setPronos] = useState([]);
   const [nbaGames, setNbaGames] = useState({});
@@ -321,6 +323,7 @@ export default function Profile({ userId, existingProfile, onProfileCreated, onP
   const pct = submitted.length > 0 ? Math.round((correct.length / submitted.length) * 100) : 0;
   const last5 = submitted.slice(0, 5);
 
+  // ── CRÉATION ──
   if (isCreating) {
     return (
       <div style={{ minHeight: '100vh', background: '#F8F7F4', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, fontFamily: "'Outfit', sans-serif" }}>
@@ -391,10 +394,12 @@ export default function Profile({ userId, existingProfile, onProfileCreated, onP
     );
   }
 
+  // ── PAGE PROFIL PRINCIPALE ──
   return (
     <div style={{ padding: '0 16px 100px', fontFamily: "'Outfit', sans-serif" }}>
       <style>{`@keyframes slideUp { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } }`}</style>
 
+      {/* Card identité */}
       <div style={{ background: '#1A1A2E', borderRadius: 24, padding: '22px', marginBottom: 14, boxShadow: '0 4px 24px rgba(26,26,46,0.15)', animation: 'slideUp 0.3s ease' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,215,0,0.1)', border: '2px solid rgba(255,215,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, flexShrink: 0 }}>
@@ -418,6 +423,7 @@ export default function Profile({ userId, existingProfile, onProfileCreated, onP
         </div>
       </div>
 
+      {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 14 }}>
         {[
           { label: 'PRONOS', value: submitted.length, icon: '✏️' },
@@ -432,8 +438,9 @@ export default function Profile({ userId, existingProfile, onProfileCreated, onP
         ))}
       </div>
 
+      {/* 5 derniers pronos */}
       {submitted.length > 0 ? (
-        <div style={{ background: '#fff', borderRadius: 20, padding: '16px 18px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', animation: 'slideUp 0.3s ease 0.18s both' }}>
+        <div style={{ background: '#fff', borderRadius: 20, padding: '16px 18px', boxShadow: '0 1px 6px rgba(0,0,0,0.05)', marginBottom: 14, animation: 'slideUp 0.3s ease 0.18s both' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#BBB', fontFamily: "'Space Mono', monospace", letterSpacing: 0.5 }}>5 DERNIERS PRONOS</div>
             <div style={{ fontSize: 10, color: '#CCC', fontFamily: "'Space Mono', monospace" }}>Temps réel</div>
@@ -460,12 +467,33 @@ export default function Profile({ userId, existingProfile, onProfileCreated, onP
           })}
         </div>
       ) : (
-        <div style={{ padding: '40px 20px', textAlign: 'center', background: '#fff', borderRadius: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.05)', animation: 'slideUp 0.3s ease 0.15s both' }}>
+        <div style={{ padding: '40px 20px', textAlign: 'center', background: '#fff', borderRadius: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.05)', marginBottom: 14, animation: 'slideUp 0.3s ease 0.15s both' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🏀</div>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#1A1A2E', marginBottom: 8 }}>Aucun prono pour l'instant</div>
           <div style={{ fontSize: 13, color: '#BBB' }}>Va sur Matchs pour commencer !</div>
         </div>
       )}
+
+      {/* Bouton WhatsApp */}
+      <a
+        href="https://wa.me/33760163497?text=Bonjour%2C%20j%27ai%20une%20question%20sur%20l%27app%20Hoop%20Prono%20!"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          display: 'flex', alignItems: 'center', gap: 14,
+          background: '#fff', borderRadius: 16, padding: '14px 18px',
+          boxShadow: '0 1px 6px rgba(0,0,0,0.05)',
+          textDecoration: 'none', marginBottom: 14,
+          animation: 'slideUp 0.3s ease 0.22s both',
+        }}
+      >
+        <div style={{ width: 42, height: 42, borderRadius: 12, background: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>💬</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#1A1A2E' }}>Aide & Feedback</div>
+          <div style={{ fontSize: 12, color: '#BBB', marginTop: 2 }}>Contacte-nous sur WhatsApp</div>
+        </div>
+        <div style={{ color: '#25D366', fontSize: 20 }}>›</div>
+      </a>
 
       {showSettings && <SettingsModal profile={existingProfile} userId={userId} onClose={onCloseSettings} onUpdate={data => onProfileUpdated?.(data)} onSignOut={onSignOut} />}
     </div>
