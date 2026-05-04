@@ -1,6 +1,6 @@
 {
-  "name": "Basket Prono - Poissy BC",
-  "short_name": "Basket Prono",
+  "name": "Hoop Prono - CSLR",
+  "short_name": "Hoop Prono"
   "description": "Pronostics basket entre membres du club",
   "start_url": "/",
   "display": "standalone",
