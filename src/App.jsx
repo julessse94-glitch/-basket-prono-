@@ -44,7 +44,7 @@ function ClubPage() {
           Bientôt disponible !
         </div>
         <div style={{ fontSize: 14, color: '#555', lineHeight: 1.6, marginBottom: 24 }}>
-          Les pronostics sur les matchs du CSLR arrivent la saison prochaine. Tu pourras pronostiquer chaque match du club et te mesurer à tes coéquipiers !
+          Les pronostics sur les matchs du CSLR arrivent très prochainement. Tu pourras pronostiquer chaque match du club et te mesurer à tes coéquipiers !
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {[
