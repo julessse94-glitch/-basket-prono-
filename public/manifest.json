@@ -1,17 +1,23 @@
 {
   "name": "Hoop Prono - CSLR",
-  "short_name": "Hoop Prono"
-  "description": "Pronostics basket entre membres du club",
+  "short_name": "Hoop Prono",
+  "description": "Pronostics NBA Playoffs - Cercle Sportif Lilas Romainville",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a0a2e",
-  "theme_color": "#1a0a2e",
+  "background_color": "#0A0A0A",
+  "theme_color": "#B794F4",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏀</text></svg>",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/logo-cslr.jpeg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-cslr.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ]
