@@ -60,7 +60,7 @@ export default function Auth() {
         margin: '0 auto 20px', overflow: 'hidden',
         boxShadow: '0 0 40px rgba(183,148,244,0.2)',
       }}>
-        <img src="/logo-cslr.jpeg" alt="CSLR" style={{ width: '90%', height: '90%', objectFit: 'contain' }} />
+        <img src="./logo-cslr.png" alt="CSLR" style={{ width: '90%', height: '90%', objectFit: 'contain' }} />
       </div>
       <div style={{ fontSize: 10, letterSpacing: 4, color: '#B794F4', fontFamily: "'Space Mono', monospace", fontWeight: 700, marginBottom: 10 }}>
         CERCLE SPORTIF LILAS ROMAINVILLE
