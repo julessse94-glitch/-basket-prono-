@@ -224,8 +224,8 @@ export default function Matches({ profile }) {
             const isSubmitted = prono?.submitted;
             const lastWinner = lastFinished ? (lastFinished.home_score > lastFinished.away_score ? lastFinished.home : lastFinished.away) : null;
             const lastProno = lastFinished ? pronos[lastFinished.id] : null;
-            const lastPronoCorrect = lastProno?.submitted && lastWinner && lastProno.vainqueur === lastWinner;
-            const lastPronoWrong = lastProno?.submitted && lastWinner && lastProno.vainqueur !== lastWinner;
+            const lastPronoCorrect = lastProno?.submitted && lastProno.points_gagnes > 0;
+			const lastPronoWrong = lastProno?.submitted && lastProno.points_gagnes === 0 && lastProno.points_gagnes !== null;
             const nextHome = nextGame?.home;
             const nextAway = nextGame?.away;
 
