@@ -316,8 +316,8 @@ export default function Matches({ profile }) {
                         const picked = prono?.vainqueur === side;
                         return (
                           <button key={side}
-                            onClick={() => !live && !isSubmitted && handlePick(activeGameId, side)}
-                            disabled={live || isSubmitted}
+                            onClick={() => !live && !isSubmitted && new Date() < new Date(nextGame.game_date) && handlePick(activeGameId, side)}
+                            disabled={live || isSubmitted || new Date() > new Date(nextGame.game_date)}
                             style={{
                               flex: 1, padding: '14px 8px', borderRadius: 16, textAlign: 'center',
                               border: picked ? `2px solid ${C.lilac}` : `1px solid ${C.border}`,
@@ -340,7 +340,7 @@ export default function Matches({ profile }) {
                       })}
                     </div>
 
-                    {!live && prono?.vainqueur && !isSubmitted && (
+                    {!live && prono?.vainqueur && !isSubmitted && new Date() < new Date(nextGame.game_date) && (
                       <button onClick={() => submitProno(activeGameId, nextGame)} style={{
                         width: '100%', marginTop: 10, padding: '13px', borderRadius: 12, border: 'none',
                         background: 'linear-gradient(135deg, #B794F4, #9B6FD4)',
