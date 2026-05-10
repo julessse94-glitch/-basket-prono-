@@ -296,6 +296,7 @@ export default function Profile({ userId, existingProfile, allProfiles, onProfil
   const [groupeNom, setGroupeNom] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [saveLoading, setSaveLoading] = useState(false);
+  const [childLoading, setChildLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showAddChild, setShowAddChild] = useState(false);
   const [childPrenom, setChildPrenom] = useState('');
@@ -332,7 +333,8 @@ export default function Profile({ userId, existingProfile, allProfiles, onProfil
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!categorie) { setError('Choisis ta catégorie'); return; }
+    if (role === 'joueur' && !categorie) { setError('Choisis ta catégorie'); return; }
+    if (role === 'parent' && enfants.length === 0) { setError('Ajoute au moins un enfant'); return; }
     setSaveLoading(true); setError(null);
     try {
       let finalGroupeCode = null, finalGroupeNom = null;
@@ -370,17 +372,23 @@ export default function Profile({ userId, existingProfile, allProfiles, onProfil
 
   const addChildProfile = async () => {
     if (!childPrenom || !childCategorie) return;
-    setSaveLoading(true);
-    const { data, error } = await supabase.from('profiles').insert({
-      pseudo: childPrenom, prenom: childPrenom, avatar: childAvatar,
-      role: 'joueur', categorie: childCategorie, points: 0,
-      parent_id: userId, is_child: true,
-    }).select().single();
-    setSaveLoading(false);
-    if (!error && data) {
-      onChildAdded?.(data);
-      setShowAddChild(false);
-      setChildPrenom(''); setChildCategorie(''); setChildAvatar('⭐');
+    setChildLoading(true);
+    try {
+      const { data, error } = await supabase.from('profiles').insert({
+        pseudo: childPrenom, prenom: childPrenom, avatar: childAvatar,
+        role: 'joueur', categorie: childCategorie, points: 0,
+        parent_id: userId, is_child: true,
+      }).select().single();
+      if (error) throw error;
+      if (data) {
+        onChildAdded?.(data);
+        setShowAddChild(false);
+        setChildPrenom(''); setChildCategorie(''); setChildAvatar('⭐');
+      }
+    } catch (err) {
+      console.error('Erreur ajout enfant:', err.message);
+    } finally {
+      setChildLoading(false);
     }
   };
 
@@ -570,8 +578,8 @@ export default function Profile({ userId, existingProfile, allProfiles, onProfil
                   {CATEGORIES_PARENT.map(cat => <button key={cat} type="button" onClick={() => setChildCategorie(cat)} style={{ padding: '7px 12px', borderRadius: 16, border: `2px solid ${childCategorie === cat ? C.lilac : C.border}`, background: childCategorie === cat ? C.lilacDim : '#1A1A1A', color: childCategorie === cat ? C.lilac : C.muted, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: "'Outfit', sans-serif" }}>{cat}</button>)}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button onClick={addChildProfile} disabled={!childPrenom || !childCategorie || saveLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', background: childPrenom && childCategorie ? 'linear-gradient(135deg, #B794F4, #9B6FD4)' : '#1A1A1A', color: childPrenom && childCategorie ? '#fff' : C.muted, fontSize: 13, fontWeight: 700, cursor: childPrenom && childCategorie ? 'pointer' : 'not-allowed', fontFamily: "'Outfit', sans-serif" }}>
-                    {saveLoading ? '...' : 'Créer le profil'}
+                  <button onClick={addChildProfile} disabled={!childPrenom || !childCategorie || childLoading} style={{ flex: 1, padding: '11px', borderRadius: 12, border: 'none', background: childPrenom && childCategorie ? 'linear-gradient(135deg, #B794F4, #9B6FD4)' : '#1A1A1A', color: childPrenom && childCategorie ? '#fff' : C.muted, fontSize: 13, fontWeight: 700, cursor: childPrenom && childCategorie ? 'pointer' : 'not-allowed', fontFamily: "'Outfit', sans-serif" }}>
+                    {childLoading ? 'Création...' : 'Créer le profil'}
                   </button>
                   <button onClick={() => { setShowAddChild(false); setChildPrenom(''); setChildCategorie(''); setChildAvatar('⭐'); }} style={{ padding: '11px 14px', borderRadius: 12, border: `1px solid ${C.border}`, background: '#1A1A1A', color: C.muted, fontSize: 13, cursor: 'pointer' }}>Annuler</button>
                 </div>
