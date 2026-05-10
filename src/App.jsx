@@ -78,11 +78,9 @@ export default function App() {
   }, [activeProfile?.id]);
 
   const loadProfiles = async (userId) => {
-    // Charger le profil principal + les profils enfants
     const { data: main } = await supabase.from('profiles').select('*').eq('id', userId).single();
     if (!main) { setLoading(false); return; }
-
-    const { data: children } = await supabase.from('profiles').select('*').eq('parent_id', userId);
+    const { data: children } = await supabase.from('profiles').select('*').eq('parent_id', userId).eq('is_child', true);
     const all = [main, ...(children || [])];
     setProfiles(all);
     setActiveProfileId(userId);
@@ -151,21 +149,22 @@ export default function App() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Switcher de profil */}
-            {hasMultipleProfiles && (
-              <button onClick={() => setShowProfileSwitcher(!showProfileSwitcher)} style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '6px 10px', borderRadius: 12,
-                background: '#1A1A1A', border: '1px solid rgba(183,148,244,0.2)',
-                cursor: 'pointer', maxWidth: 120,
-              }}>
-                <span style={{ fontSize: 16 }}>{activeProfile.avatar}</span>
-                <span style={{ fontSize: 11, color: '#B794F4', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {activeProfile.prenom || activeProfile.pseudo}
-                </span>
-                <span style={{ fontSize: 10, color: '#555' }}>▾</span>
-              </button>
-            )}
+            {/* Switcher de profil — toujours visible */}
+            <button onClick={() => setShowProfileSwitcher(!showProfileSwitcher)} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '6px 10px', borderRadius: 12,
+              background: showProfileSwitcher ? 'rgba(183,148,244,0.2)' : '#1A1A1A',
+              border: `1px solid ${showProfileSwitcher ? 'rgba(183,148,244,0.5)' : 'rgba(183,148,244,0.2)'}`,
+              cursor: 'pointer', maxWidth: 130, transition: 'all 0.2s',
+            }}>
+              <span style={{ fontSize: 18 }}>{activeProfile.avatar}</span>
+              <span style={{ fontSize: 11, color: '#B794F4', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                {activeProfile.prenom || activeProfile.pseudo}
+              </span>
+              <span style={{ fontSize: 10, color: profiles.length > 1 ? '#B794F4' : '#444' }}>
+                {profiles.length > 1 ? '▾' : ''}
+              </span>
+            </button>
 
             {activeTab === 'profil' && (
               <button onClick={() => setShowSettings(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: '#1A1A1A', border: '1px solid rgba(183,148,244,0.2)', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⚙️</button>
@@ -182,7 +181,9 @@ export default function App() {
         {showProfileSwitcher && (
           <div style={{ position: 'absolute', top: '100%', right: 16, left: 16, background: '#1A1A1A', borderRadius: 16, border: '1px solid rgba(183,148,244,0.2)', padding: '8px', zIndex: 200, animation: 'slideDown 0.2s ease', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}
             onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 10, color: '#555', fontFamily: "'Space Mono', monospace", padding: '6px 8px 8px', letterSpacing: 1 }}>CHANGER DE PROFIL</div>
+            <div style={{ fontSize: 10, color: '#555', fontFamily: "'Space Mono', monospace", padding: '6px 8px 8px', letterSpacing: 1 }}>
+              {profiles.length > 1 ? 'CHANGER DE PROFIL' : 'MON PROFIL'}
+            </div>
             {profiles.map(p => (
               <button key={p.id} onClick={() => { setActiveProfileId(p.id); setShowProfileSwitcher(false); }} style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: 10,
@@ -190,17 +191,25 @@ export default function App() {
                 background: p.id === activeProfileId ? 'rgba(183,148,244,0.15)' : 'transparent',
                 marginBottom: 4,
               }}>
-                <span style={{ fontSize: 22 }}>{p.avatar}</span>
+                <span style={{ fontSize: 22, width: 36, textAlign: 'center' }}>{p.avatar}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: p.id === activeProfileId ? '#B794F4' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {p.prenom || p.pseudo} {p.id === activeProfileId ? '✓' : ''}
+                  <div style={{ fontSize: 13, fontWeight: 700, color: p.id === activeProfileId ? '#B794F4' : '#fff', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {p.prenom || p.pseudo}
+                    {p.id === activeProfileId && <span style={{ fontSize: 10, color: '#B794F4' }}>✓</span>}
                   </div>
-                  <div style={{ fontSize: 10, color: '#555', fontFamily: "'Space Mono', monospace" }}>
-                    {p.is_child ? `Enfant · ${p.categorie}` : p.categorie} · {p.points || 0} pts
+                  <div style={{ fontSize: 10, color: '#555', fontFamily: "'Space Mono', monospace", marginTop: 2 }}>
+                    {p.is_child ? `Enfant · ${p.categorie}` : p.role === 'parent' ? `Parent · ${p.categorie}` : p.categorie} · {p.points || 0} pts
                   </div>
                 </div>
               </button>
             ))}
+            {profiles.length === 1 && profiles[0].role === 'parent' && (
+              <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: '#555', textAlign: 'center' }}>
+                  Ajoute des profils enfants depuis l'onglet 👤 Profil
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

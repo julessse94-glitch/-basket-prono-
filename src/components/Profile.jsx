@@ -92,12 +92,22 @@ function SettingsModal({ profile, userId, onClose, onUpdate, onSignOut }) {
   const joinGroupe = async () => {
     if (joinCode.length < 6) return;
     setLoading(true);
-    const { data: groupe, error: gErr } = await supabase.from('groupes').select('*').eq('code', joinCode.toUpperCase()).single();
-    if (gErr || !groupe) { showMsg('Code invalide — vérifie et réessaie', true); setLoading(false); return; }
-    const { error } = await supabase.from('groupe_membres').upsert({ user_id: userId, groupe_code: groupe.code, groupe_nom: groupe.nom }, { onConflict: 'user_id,groupe_code' });
+    const { data: groupe, error: gErr } = await supabase
+      .from('groupes').select('*').eq('code', joinCode.toUpperCase()).single();
+    if (gErr || !groupe) {
+      showMsg('Code invalide — vérifie et réessaie', true);
+      setLoading(false); return;
+    }
+    // upsert évite l'erreur si déjà membre
+    const { error } = await supabase.from('groupe_membres').upsert(
+      { user_id: userId, groupe_code: groupe.code, groupe_nom: groupe.nom },
+      { onConflict: 'user_id,groupe_code' }
+    );
     setLoading(false);
-    if (error) showMsg(error.message, true);
-    else { showMsg(`"${groupe.nom}" rejoint ✅`); setJoinCode(''); setGroupeAction(''); loadMesGroupes(); }
+    if (error) { showMsg(error.message, true); return; }
+    showMsg(`"${groupe.nom}" rejoint ✅`);
+    setJoinCode(''); setGroupeAction('');
+    loadMesGroupes();
   };
 
   const leaveGroupe = async (code) => {
@@ -341,12 +351,12 @@ export default function Profile({ userId, existingProfile, allProfiles, onProfil
       if (groupeStep === 'create' && groupeNom) {
         const code = generateCode();
         await supabase.from('groupes').insert([{ code, nom: groupeNom, created_by: userId }]);
-        await supabase.from('groupe_membres').upsert({ user_id: userId, groupe_code: code, groupe_nom: groupeNom }, { onConflict: 'user_id,groupe_code' });
+        await supabase.from('groupe_membres').insert({ user_id: userId, groupe_code: code, groupe_nom: groupeNom });
         finalGroupeCode = code; finalGroupeNom = groupeNom;
       } else if (groupeStep === 'join' && joinCode) {
         const { data: groupe } = await supabase.from('groupes').select('*').eq('code', joinCode.toUpperCase()).single();
         if (!groupe) throw new Error('Code de groupe invalide');
-        await supabase.from('groupe_membres').upsert({ user_id: userId, groupe_code: groupe.code, groupe_nom: groupe.nom }, { onConflict: 'user_id,groupe_code' });
+        await supabase.from('groupe_membres').insert({ user_id: userId, groupe_code: groupe.code, groupe_nom: groupe.nom });
         finalGroupeCode = groupe.code; finalGroupeNom = groupe.nom;
       }
 
