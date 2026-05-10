@@ -20,37 +20,28 @@ const NBA_LOGOS = {
   HOU: 'https://cdn.nba.com/logos/nba/1610612745/global/L/logo.svg',
 };
 
-const SERIES_ORDER_R1 = ['BOS_PHI', 'NYK_ATL', 'CLE_TOR', 'DET_ORL', 'OKC_PHX', 'SAS_POR', 'DEN_MIN', 'LAL_HOU'];
 const SERIES_ORDER_R2 = ['NYK_PHI', 'DET_CLE', 'SAS_MIN', 'OKC_LAL'];
+const SERIES_ORDER_R1 = ['BOS_PHI', 'NYK_ATL', 'CLE_TOR', 'DET_ORL', 'OKC_PHX', 'SAS_POR', 'DEN_MIN', 'LAL_HOU'];
 const SERIES_ORDER = [...SERIES_ORDER_R2, ...SERIES_ORDER_R1];
 const SERIES_CONF = {
   BOS_PHI: 'EST', NYK_ATL: 'EST', CLE_TOR: 'EST', DET_ORL: 'EST',
   OKC_PHX: 'OUEST', SAS_POR: 'OUEST', DEN_MIN: 'OUEST', LAL_HOU: 'OUEST',
-  // Demi-finales
   NYK_PHI: 'EST', DET_CLE: 'EST', SAS_MIN: 'OUEST', OKC_LAL: 'OUEST',
 };
+const SERIES_ROUND = { NYK_PHI: 2, DET_CLE: 2, SAS_MIN: 2, OKC_LAL: 2 };
 
-// Couleurs CSLR
 const C = {
-  bg: '#0D0D0D',
-  card: '#141414',
-  card2: '#1A1A1A',
-  lilac: '#B794F4',
-  lilacDim: 'rgba(183,148,244,0.15)',
-  lilacBorder: 'rgba(183,148,244,0.2)',
-  gold: '#D4AF37',
-  goldDim: 'rgba(212,175,55,0.15)',
-  text: '#fff',
-  muted: '#555',
-  border: 'rgba(255,255,255,0.06)',
-  red: '#F87171',
-  green: '#4ADE80',
+  bg: '#0D0D0D', card: '#141414', card2: '#1A1A1A',
+  lilac: '#B794F4', lilacDim: 'rgba(183,148,244,0.12)', lilacBorder: 'rgba(183,148,244,0.2)',
+  gold: '#D4AF37', goldDim: 'rgba(212,175,55,0.12)',
+  text: '#fff', muted: '#555', border: 'rgba(255,255,255,0.06)',
+  green: '#4ADE80', red: '#F87171',
 };
 
 function TeamLogo({ abbr, size = 52 }) {
   const [err, setErr] = useState(false);
   const FALLBACK = { BOS:'☘️',PHI:'🔔',NYK:'🗽',ATL:'🦅',CLE:'⚔️',TOR:'🦕',DET:'⚙️',ORL:'✨',OKC:'⚡',PHX:'☀️',SAS:'🤠',POR:'🌲',DEN:'⛰️',MIN:'🐺',LAL:'💜',HOU:'🚀' };
-  if (err || !NBA_LOGOS[abbr]) return <div style={{ fontSize: size * 0.55, width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{FALLBACK[abbr] || '🏀'}</div>;
+  if (err || !NBA_LOGOS[abbr]) return <div style={{ fontSize: size * 0.5, width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{FALLBACK[abbr] || '🏀'}</div>;
   return <img src={NBA_LOGOS[abbr]} alt={abbr} width={size} height={size} onError={() => setErr(true)} style={{ objectFit: 'contain', display: 'block' }} />;
 }
 
@@ -65,9 +56,9 @@ export default function Matches({ profile }) {
 
   useEffect(() => {
     loadAll();
-    intervalRef.current = setInterval(loadAll, 30000);
+    intervalRef.current = setInterval(loadGames, 60000); // refresh toutes les minutes
     return () => clearInterval(intervalRef.current);
-  }, []);
+  }, [profile.id]);
 
   const loadAll = async () => {
     await Promise.all([loadGames(), loadPronos()]);
@@ -93,7 +84,7 @@ export default function Matches({ profile }) {
     setPronos(prev => ({ ...prev, [gameId]: { ...prev[gameId], vainqueur: pick } }));
   };
 
-  const submitProno = async (gameId, game) => {
+  const submitProno = async (gameId) => {
     const prono = pronos[gameId];
     if (!prono?.vainqueur) { showToast("Choisis une équipe !", 'error'); return; }
     const { error } = await supabase.from('pronostics').upsert({
@@ -102,13 +93,15 @@ export default function Matches({ profile }) {
     }, { onConflict: 'user_id,nba_serie_id' });
     if (error) { showToast('Erreur : ' + error.message, 'error'); return; }
     showToast('Prono validé ! 🎯');
-    loadAll();
+    loadPronos();
   };
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 2500);
   };
+
+  const now = new Date();
 
   const bySerieId = {};
   games.forEach(g => {
@@ -125,7 +118,8 @@ export default function Matches({ profile }) {
     const nextGame = live || upcoming[0] || null;
     const isEliminated = finished.length > 0 && !nextGame && !live;
     const record = lastFinished?.serie_record || '';
-    return { sid, conf: SERIES_CONF[sid], lastFinished, nextGame, live: !!live, isEliminated, record, nextDate: nextGame?.game_date || null };
+    const isR2 = SERIES_ROUND[sid] === 2;
+    return { sid, conf: SERIES_CONF[sid], lastFinished, nextGame, live: !!live, isEliminated, record, nextDate: nextGame?.game_date || null, isR2 };
   });
 
   const finishedGames = games
@@ -148,44 +142,36 @@ export default function Matches({ profile }) {
   const activeGameIds = activeSeries.map(s => s.nextGame?.id).filter(Boolean);
   const totalPronos = activeGameIds.filter(id => pronos[id]?.submitted).length;
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: C.muted, fontFamily: "'Outfit', sans-serif" }}>Chargement...</div>;
+  if (loading) return <div style={{ padding: '60px', textAlign: 'center', color: C.muted, fontFamily: "'Outfit', sans-serif" }}>Chargement...</div>;
 
   return (
-    <div style={{ padding: '0 16px 100px', fontFamily: "'Outfit', sans-serif" }}>
+    <div style={{ padding: '0 14px 100px', fontFamily: "'Outfit', sans-serif" }}>
       <style>{`
         @keyframes slideUp { from { opacity:0; transform:translateY(14px) } to { opacity:1; transform:translateY(0) } }
         @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
       `}</style>
 
-      {/* Banner */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1A1420, #141414)',
-        borderRadius: 20, padding: '16px 20px', marginBottom: 16,
-        border: '1px solid rgba(183,148,244,0.2)',
-        boxShadow: '0 4px 24px rgba(183,148,244,0.08)',
-      }}>
+      {/* Banner compact */}
+      <div style={{ background: 'linear-gradient(135deg, #1A1428, #141414)', borderRadius: 18, padding: '14px 16px', marginBottom: 14, border: '1px solid rgba(183,148,244,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <div style={{ fontSize: 10, color: C.lilac, fontFamily: "'Space Mono', monospace", letterSpacing: 1, marginBottom: 4 }}>NBA · PLAYOFFS 2026 · 1ER TOUR</div>
-            <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>
-              {statusFilter === 'upcoming' ? 'Prochain match de chaque série' : 'Historique des résultats'}
-            </div>
-            <div style={{ fontSize: 11, color: C.muted, marginTop: 3, fontFamily: "'Space Mono', monospace" }}>
-              {totalPronos}/{upcomingCount} pronos posés · 100 pts par bon prono
+            <div style={{ fontSize: 10, color: C.lilac, fontFamily: "'Space Mono', monospace", letterSpacing: 1, marginBottom: 3 }}>NBA · PLAYOFFS 2026</div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{statusFilter === 'upcoming' ? 'Pronos à faire' : 'Mes résultats'}</div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: 10, color: C.muted, fontFamily: "'Space Mono', monospace" }}>{totalPronos}/{upcomingCount} pronos</div>
+            <div style={{ marginTop: 6, width: 80, height: 3, background: 'rgba(183,148,244,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ height: '100%', background: 'linear-gradient(90deg, #B794F4, #D4AF37)', width: `${Math.min((totalPronos / Math.max(upcomingCount, 1)) * 100, 100)}%`, borderRadius: 2, transition: 'width .6s' }} />
             </div>
           </div>
-          <div style={{ fontSize: 30 }}>🏆</div>
-        </div>
-        <div style={{ marginTop: 12, height: 3, background: 'rgba(183,148,244,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-          <div style={{ height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, #B794F4, #D4AF37)', width: `${Math.min((totalPronos / Math.max(upcomingCount,1)) * 100, 100)}%`, transition: 'width .6s ease' }} />
         </div>
       </div>
 
-      {/* Status tabs */}
-      <div style={{ display: 'flex', background: '#141414', borderRadius: 14, padding: 4, marginBottom: 14, border: `1px solid ${C.border}` }}>
-        {[['upcoming', `⏳ En cours (${upcomingCount})`], ['finished', `✅ Résultats (${finishedCount})`]].map(([id, label]) => (
+      {/* Onglets */}
+      <div style={{ display: 'flex', background: '#141414', borderRadius: 14, padding: 4, marginBottom: 12, border: `1px solid ${C.border}` }}>
+        {[['upcoming', `⏳ À pronostiquer (${upcomingCount})`], ['finished', `✅ Résultats (${finishedCount})`]].map(([id, label]) => (
           <button key={id} onClick={() => setStatusFilter(id)} style={{
-            flex: 1, padding: '9px', borderRadius: 11, border: 'none', cursor: 'pointer',
+            flex: 1, padding: '9px 6px', borderRadius: 11, border: 'none', cursor: 'pointer',
             fontSize: 11, fontWeight: 700,
             background: statusFilter === id ? 'linear-gradient(135deg, #B794F4, #9B6FD4)' : 'transparent',
             color: statusFilter === id ? '#fff' : C.muted,
@@ -195,11 +181,11 @@ export default function Matches({ profile }) {
         ))}
       </div>
 
-      {/* Conf filter */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      {/* Filtre conf */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         {[['all', 'Toutes'], ['EST', '🏀 Est'], ['OUEST', '⚡ Ouest']].map(([id, label]) => (
           <button key={id} onClick={() => setConfFilter(id)} style={{
-            flex: 1, padding: '8px', borderRadius: 12, border: 'none', cursor: 'pointer',
+            flex: 1, padding: '7px', borderRadius: 10, border: 'none', cursor: 'pointer',
             fontSize: 11, fontWeight: 700,
             background: confFilter === id ? C.goldDim : '#141414',
             color: confFilter === id ? C.gold : C.muted,
@@ -209,151 +195,159 @@ export default function Matches({ profile }) {
         ))}
       </div>
 
-      {/* ── EN COURS ── */}
+      {/* ── EN COURS / À PRONOSTIQUER ── */}
       {statusFilter === 'upcoming' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {activeSeries.length === 0 && (
             <div style={{ padding: '40px 20px', textAlign: 'center', background: C.card, borderRadius: 20, border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🏆</div>
               <div style={{ fontSize: 15, color: C.muted }}>Aucune série active</div>
             </div>
           )}
-          {activeSeries.map(({ sid, conf, lastFinished, nextGame, live, record }, si) => {
+          {activeSeries.map(({ sid, conf, lastFinished, nextGame, live, record, isR2 }, si) => {
             const activeGameId = nextGame?.id;
             const prono = pronos[activeGameId];
             const isSubmitted = prono?.submitted;
+            const isPast = nextGame && new Date(nextGame.game_date) < now;
+            const isBlocked = live || isSubmitted || isPast;
+
             const lastWinner = lastFinished ? (lastFinished.home_score > lastFinished.away_score ? lastFinished.home : lastFinished.away) : null;
             const lastProno = lastFinished ? pronos[lastFinished.id] : null;
             const lastPronoCorrect = lastProno?.submitted && lastProno.points_gagnes > 0;
-			const lastPronoWrong = lastProno?.submitted && lastProno.points_gagnes === 0 && lastProno.points_gagnes !== null;
+            const lastPronoWrong = lastProno?.submitted && lastProno.points_gagnes === 0 && lastFinished?.status === 'finished';
+
             const nextHome = nextGame?.home;
             const nextAway = nextGame?.away;
 
             return (
               <div key={sid} style={{
-                background: C.card, borderRadius: 22, overflow: 'hidden',
-                border: `1px solid ${C.border}`,
-                boxShadow: live ? `0 0 24px rgba(248,113,113,0.15)` : '0 2px 12px rgba(0,0,0,0.3)',
+                background: C.card, borderRadius: 20, overflow: 'hidden',
+                border: `1px solid ${live ? 'rgba(248,113,113,0.3)' : C.border}`,
+                boxShadow: live ? '0 0 20px rgba(248,113,113,0.1)' : '0 2px 12px rgba(0,0,0,0.3)',
                 animation: `slideUp 0.35s ease ${si * 0.05}s both`,
               }}>
-                {/* Header */}
-                <div style={{ padding: '11px 16px', background: '#1A1A1A', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                {/* Header série */}
+                <div style={{ padding: '10px 14px', background: '#1A1A1A', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{
-                      fontSize: 10, fontWeight: 700,
-                      color: conf === 'EST' ? '#60A5FA' : C.gold,
-                      background: conf === 'EST' ? 'rgba(96,165,250,0.1)' : C.goldDim,
-                      padding: '3px 8px', borderRadius: 6, fontFamily: "'Space Mono', monospace",
-                      border: conf === 'EST' ? '1px solid rgba(96,165,250,0.2)' : `1px solid ${C.gold}33`,
-                    }}>{conf}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <TeamLogo abbr={lastFinished?.home || nextGame?.home} size={18} />
-                      <span style={{ fontSize: 10, color: C.muted }}>vs</span>
-                      <TeamLogo abbr={lastFinished?.away || nextGame?.away} size={18} />
-                    </div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>
+                    {isR2 && <div style={{ fontSize: 9, fontWeight: 700, color: C.gold, background: C.goldDim, padding: '2px 7px', borderRadius: 5, fontFamily: "'Space Mono', monospace", border: `1px solid ${C.gold}33` }}>DEMI-FINALE</div>}
+                    <div style={{ fontSize: 9, fontWeight: 700, color: conf === 'EST' ? '#60A5FA' : C.gold, background: conf === 'EST' ? 'rgba(96,165,250,0.1)' : C.goldDim, padding: '2px 7px', borderRadius: 5, fontFamily: "'Space Mono', monospace" }}>{conf}</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>
                       {(nextGame?.home_name || lastFinished?.home_name || '').split(' ').pop()} vs {(nextGame?.away_name || lastFinished?.away_name || '').split(' ').pop()}
                     </div>
                   </div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, fontFamily: "'Space Mono', monospace" }}>{record}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: C.muted, fontFamily: "'Space Mono', monospace" }}>{record}</div>
                 </div>
 
-                {/* Dernier résultat */}
+                {/* Dernier résultat — compact */}
                 {lastFinished && (
-                  <div style={{ padding: '12px 16px', borderBottom: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 10, color: C.muted, fontFamily: "'Space Mono', monospace", marginBottom: 8, letterSpacing: 1 }}>DERNIER RÉSULTAT — GAME {lastFinished.game_num}</div>
+                  <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, background: '#111' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ flex: 1, textAlign: 'center' }}>
-                        <TeamLogo abbr={lastFinished.home} size={36} />
-                        <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{lastFinished.home}</div>
-                        <div style={{ fontSize: 24, fontWeight: 900, marginTop: 3, color: lastWinner === lastFinished.home ? C.green : '#333' }}>{lastFinished.home_score}</div>
+                      <div style={{ fontSize: 9, color: C.muted, fontFamily: "'Space Mono', monospace", flexShrink: 0 }}>GAME {lastFinished.game_num}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                        <TeamLogo abbr={lastFinished.home} size={20} />
+                        <span style={{ fontSize: 16, fontWeight: 900, color: lastWinner === lastFinished.home ? C.green : '#333' }}>{lastFinished.home_score}</span>
+                        <span style={{ fontSize: 11, color: '#333', fontWeight: 700 }}>-</span>
+                        <span style={{ fontSize: 16, fontWeight: 900, color: lastWinner === lastFinished.away ? C.green : '#333' }}>{lastFinished.away_score}</span>
+                        <TeamLogo abbr={lastFinished.away} size={20} />
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                        <div style={{ fontSize: 10, color: '#333' }}>—</div>
-                        {lastPronoCorrect && <div style={{ fontSize: 16 }}>✅</div>}
-                        {lastPronoWrong && <div style={{ fontSize: 16 }}>❌</div>}
-                      </div>
-                      <div style={{ flex: 1, textAlign: 'center' }}>
-                        <TeamLogo abbr={lastFinished.away} size={36} />
-                        <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>{lastFinished.away}</div>
-                        <div style={{ fontSize: 24, fontWeight: 900, marginTop: 3, color: lastWinner === lastFinished.away ? C.green : '#333' }}>{lastFinished.away_score}</div>
-                      </div>
+                      {lastPronoCorrect && <span style={{ fontSize: 14 }}>✅</span>}
+                      {lastPronoWrong && <span style={{ fontSize: 14 }}>❌</span>}
                     </div>
-                    {lastPronoCorrect && <div style={{ marginTop: 6, textAlign: 'center', fontSize: 11, color: C.green, fontWeight: 700 }}>Ton prono était bon ! +100 pts 🎉</div>}
-                    {lastPronoWrong && <div style={{ marginTop: 6, textAlign: 'center', fontSize: 11, color: C.red, fontWeight: 700 }}>Raté sur ce match</div>}
                   </div>
                 )}
 
-                {/* Prochain match */}
+                {/* Prochain match — MISE EN AVANT */}
                 {nextGame && (
-                  <div style={{ padding: '14px 16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                      <div style={{ fontSize: 10, color: live ? C.red : C.lilac, fontFamily: "'Space Mono', monospace", fontWeight: 700 }}>
-                        {live ? `🔴 EN DIRECT — GAME ${nextGame.game_num}` : `PROCHAIN — GAME ${nextGame.game_num}`}
+                  <div style={{ padding: '16px 14px' }}>
+                    {/* Date et game */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                      <div style={{ fontSize: 11, color: live ? C.red : isPast ? C.muted : C.lilac, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>
+                        {live ? '🔴 EN DIRECT' : isPast ? '⏸ MATCH PASSÉ' : `🎯 GAME ${nextGame.game_num} — TON PRONO`}
                       </div>
                       <div style={{ fontSize: 10, color: C.muted, fontFamily: "'Space Mono', monospace" }}>
                         {new Date(nextGame.game_date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
 
-                    {nextGame.win_prob_home && !live && !isSubmitted && (
-                      <div style={{ marginBottom: 12 }}>
-                        <div style={{ display: 'flex', height: 3, borderRadius: 2, overflow: 'hidden', background: '#1A1A1A' }}>
-                          <div style={{ width: `${nextGame.win_prob_home}%`, background: 'linear-gradient(90deg, #B794F4, #9B6FD4)' }} />
-                          <div style={{ flex: 1, background: '#2A2A2A' }} />
+                    {/* Probabilités — plus claires */}
+                    {nextGame.win_prob_home && !isBlocked && (
+                      <div style={{ background: '#1A1A1A', borderRadius: 12, padding: '10px 12px', marginBottom: 14, border: `1px solid ${C.border}` }}>
+                        <div style={{ fontSize: 10, color: C.muted, fontFamily: "'Space Mono', monospace", marginBottom: 8 }}>
+                          📊 PROBABILITÉ DE VICTOIRE (selon les experts)
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: C.text, width: 30, textAlign: 'right', fontFamily: "'Space Mono', monospace" }}>{nextGame.win_prob_home}%</div>
+                          <div style={{ flex: 1, height: 6, background: '#2A2A2A', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ width: `${nextGame.win_prob_home}%`, height: '100%', background: 'linear-gradient(90deg, #B794F4, #9B6FD4)', borderRadius: 3, transition: 'width 1s ease' }} />
+                          </div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: C.text, width: 30, fontFamily: "'Space Mono', monospace" }}>{nextGame.win_prob_away}%</div>
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                          <span style={{ fontSize: 9, color: C.muted, fontFamily: "'Space Mono', monospace" }}>{nextHome} {nextGame.win_prob_home}%</span>
-                          <span style={{ fontSize: 9, color: C.muted, fontFamily: "'Space Mono', monospace" }}>{nextAway} {nextGame.win_prob_away}%</span>
+                          <span style={{ fontSize: 9, color: C.muted }}>{nextHome}</span>
+                          <span style={{ fontSize: 9, color: C.muted }}>{nextAway}</span>
                         </div>
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    {/* Boutons équipes — plus grands et clairs */}
+                    <div style={{ display: 'flex', gap: 10 }}>
                       {['home', 'away'].map(side => {
                         const abbr = side === 'home' ? nextHome : nextAway;
                         const name = side === 'home' ? nextGame.home_name : nextGame.away_name;
                         const picked = prono?.vainqueur === side;
                         return (
                           <button key={side}
-                            onClick={() => !live && !isSubmitted && new Date() < new Date(nextGame.game_date) && handlePick(activeGameId, side)}
-                            disabled={live || isSubmitted || new Date() > new Date(nextGame.game_date)}
+                            onClick={() => !isBlocked && handlePick(activeGameId, side)}
+                            disabled={isBlocked}
                             style={{
-                              flex: 1, padding: '14px 8px', borderRadius: 16, textAlign: 'center',
+                              flex: 1, padding: '16px 8px', borderRadius: 16, textAlign: 'center',
                               border: picked ? `2px solid ${C.lilac}` : `1px solid ${C.border}`,
                               background: picked ? 'linear-gradient(135deg, #1A1428, #12102A)' : '#1A1A1A',
-                              cursor: live || isSubmitted ? 'default' : 'pointer',
-                              boxShadow: picked ? `0 0 20px rgba(183,148,244,0.2)` : 'none',
+                              cursor: isBlocked ? 'default' : 'pointer',
+                              boxShadow: picked ? `0 0 20px rgba(183,148,244,0.25)` : 'none',
                               transition: 'all 0.2s',
                             }}
                           >
                             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
-                              <TeamLogo abbr={abbr} size={44} />
+                              <TeamLogo abbr={abbr} size={52} />
                             </div>
-                            <div style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.3, color: picked ? C.lilac : C.text }}>{name}</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: picked ? C.lilac : C.text, lineHeight: 1.3 }}>{name}</div>
                             <div style={{ fontSize: 9, color: picked ? `${C.lilac}88` : C.muted, marginTop: 3, fontFamily: "'Space Mono', monospace" }}>
-                              {side === 'home' ? 'DOM' : 'EXT'}
+                              {side === 'home' ? '🏠 DOMICILE' : '✈️ EXTÉRIEUR'}
                             </div>
-                            {picked && !live && <div style={{ fontSize: 9, color: C.lilac, marginTop: 4, fontFamily: "'Space Mono', monospace" }}>✓ MON PRONO</div>}
+                            {picked && !isBlocked && (
+                              <div style={{ marginTop: 6, fontSize: 10, color: C.lilac, fontWeight: 700, background: 'rgba(183,148,244,0.1)', borderRadius: 8, padding: '4px 8px', fontFamily: "'Space Mono', monospace" }}>
+                                ✓ MON CHOIX
+                              </div>
+                            )}
                           </button>
                         );
                       })}
                     </div>
 
-                    {!live && prono?.vainqueur && !isSubmitted && new Date() < new Date(nextGame.game_date) && (
-                      <button onClick={() => submitProno(activeGameId, nextGame)} style={{
-                        width: '100%', marginTop: 10, padding: '13px', borderRadius: 12, border: 'none',
+                    {/* Bouton valider */}
+                    {!isBlocked && prono?.vainqueur && (
+                      <button onClick={() => submitProno(activeGameId)} style={{
+                        width: '100%', marginTop: 12, padding: '14px', borderRadius: 14, border: 'none',
                         background: 'linear-gradient(135deg, #B794F4, #9B6FD4)',
-                        color: '#fff', fontSize: 14, fontWeight: 700,
+                        color: '#fff', fontSize: 15, fontWeight: 800,
                         cursor: 'pointer', fontFamily: "'Outfit', sans-serif",
-                        boxShadow: '0 4px 16px rgba(183,148,244,0.4)',
-                      }}>🎯 Valider — 100 pts si correct !</button>
+                        boxShadow: '0 4px 20px rgba(183,148,244,0.5)',
+                      }}>
+                        🎯 Valider mon prono — +100 pts si correct !
+                      </button>
                     )}
-                    {live && <div style={{ marginTop: 10, textAlign: 'center', fontSize: 11, color: C.red, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>🔴 MATCH EN COURS — PRONOS FERMÉS</div>}
-                    {isSubmitted && !live && <div style={{ marginTop: 10, textAlign: 'center', fontSize: 12, color: C.green, fontWeight: 700 }}>Prono soumis ✅ — Résultat cette nuit !</div>}
+
+                    {/* États */}
+                    {live && <div style={{ marginTop: 10, textAlign: 'center', fontSize: 12, color: C.red, fontWeight: 700 }}>🔴 Match en cours — pronos fermés</div>}
+                    {isPast && !live && !isSubmitted && <div style={{ marginTop: 10, textAlign: 'center', fontSize: 12, color: C.muted }}>⏸ Match commencé — pronos fermés</div>}
+                    {isSubmitted && !live && (
+                      <div style={{ marginTop: 10, textAlign: 'center', fontSize: 13, color: C.green, fontWeight: 700 }}>
+                        ✅ Prono soumis — résultat cette nuit !
+                      </div>
+                    )}
                   </div>
                 )}
-                {!nextGame && <div style={{ padding: '14px', textAlign: 'center', color: C.muted, fontSize: 13 }}>Prochain match bientôt annoncé...</div>}
               </div>
             );
           })}
@@ -362,7 +356,7 @@ export default function Matches({ profile }) {
 
       {/* ── RÉSULTATS ── */}
       {statusFilter === 'finished' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {finishedGames.length === 0 && (
             <div style={{ padding: '40px 20px', textAlign: 'center', background: C.card, borderRadius: 20, border: `1px solid ${C.border}` }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🏀</div>
@@ -373,61 +367,59 @@ export default function Matches({ profile }) {
             const prono = pronos[game.id];
             const winner = game.home_score > game.away_score ? 'home' : 'away';
             const hasProno = prono?.submitted;
-            const correct = hasProno && prono.vainqueur === winner;
-            const wrong = hasProno && prono.vainqueur !== winner;
+            const correct = hasProno && prono.points_gagnes > 0;
+            const wrong = hasProno && prono.points_gagnes === 0;
             const conf = SERIES_CONF[game.serie_id];
 
             return (
               <div key={game.id} style={{
-                background: C.card, borderRadius: 18, overflow: 'hidden',
+                background: C.card, borderRadius: 16, overflow: 'hidden',
                 border: correct ? `1px solid ${C.green}44` : wrong ? `1px solid ${C.red}33` : `1px solid ${C.border}`,
-                boxShadow: correct ? `0 2px 16px rgba(74,222,128,0.08)` : wrong ? `0 2px 16px rgba(248,113,113,0.06)` : '0 1px 8px rgba(0,0,0,0.2)',
                 animation: `slideUp 0.3s ease ${i * 0.03}s both`,
               }}>
-                <div style={{ padding: '10px 14px', background: '#1A1A1A', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ padding: '9px 14px', background: '#1A1A1A', borderBottom: `1px solid ${C.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div style={{ fontSize: 9, fontWeight: 700, color: conf === 'EST' ? '#60A5FA' : C.gold, background: conf === 'EST' ? 'rgba(96,165,250,0.1)' : C.goldDim, padding: '2px 7px', borderRadius: 5, fontFamily: "'Space Mono', monospace" }}>{conf}</div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, fontFamily: "'Space Mono', monospace" }}>GAME {game.game_num}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, fontFamily: "'Space Mono', monospace" }}>GAME {game.game_num}</div>
                   </div>
                   <div style={{ fontSize: 10, color: C.muted, fontFamily: "'Space Mono', monospace" }}>
                     {new Date(game.game_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                   </div>
                 </div>
 
-                <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div style={{ flex: 1, textAlign: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}><TeamLogo abbr={game.home} size={38} /></div>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: C.muted }}>{game.home_name}</div>
-                    <div style={{ fontSize: 26, fontWeight: 900, marginTop: 4, color: winner === 'home' ? C.green : '#333' }}>{game.home_score}</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}><TeamLogo abbr={game.home} size={36} /></div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{game.home_name?.split(' ').pop()}</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, marginTop: 3, color: winner === 'home' ? C.green : '#333' }}>{game.home_score}</div>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 52 }}>
-                    <div style={{ fontSize: 10, color: '#333', fontFamily: "'Space Mono', monospace" }}>VS</div>
-                    {correct && <div style={{ background: 'rgba(74,222,128,0.1)', borderRadius: 10, padding: '6px 10px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 18 }}>✅</div>
-                      <div style={{ fontSize: 10, color: C.green, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>+100</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 48 }}>
+                    {correct && <div style={{ background: 'rgba(74,222,128,0.1)', borderRadius: 8, padding: '5px 8px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 16 }}>✅</div>
+                      <div style={{ fontSize: 9, color: C.green, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>+100</div>
                     </div>}
-                    {wrong && <div style={{ background: 'rgba(248,113,113,0.1)', borderRadius: 10, padding: '6px 10px', textAlign: 'center' }}>
-                      <div style={{ fontSize: 18 }}>❌</div>
-                      <div style={{ fontSize: 10, color: C.red, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>0 pt</div>
+                    {wrong && <div style={{ background: 'rgba(248,113,113,0.1)', borderRadius: 8, padding: '5px 8px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 16 }}>❌</div>
+                      <div style={{ fontSize: 9, color: C.red, fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>0 pt</div>
                     </div>}
-                    {!hasProno && <div style={{ background: '#1A1A1A', borderRadius: 10, padding: '6px 10px', textAlign: 'center' }}>
+                    {!hasProno && <div style={{ background: '#1A1A1A', borderRadius: 8, padding: '5px 8px', textAlign: 'center' }}>
                       <div style={{ fontSize: 14 }}>—</div>
                       <div style={{ fontSize: 9, color: C.muted, fontFamily: "'Space Mono', monospace" }}>pas de prono</div>
                     </div>}
                   </div>
 
                   <div style={{ flex: 1, textAlign: 'center' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}><TeamLogo abbr={game.away} size={38} /></div>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: C.muted }}>{game.away_name}</div>
-                    <div style={{ fontSize: 26, fontWeight: 900, marginTop: 4, color: winner === 'away' ? C.green : '#333' }}>{game.away_score}</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}><TeamLogo abbr={game.away} size={36} /></div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{game.away_name?.split(' ').pop()}</div>
+                    <div style={{ fontSize: 24, fontWeight: 900, marginTop: 3, color: winner === 'away' ? C.green : '#333' }}>{game.away_score}</div>
                   </div>
                 </div>
 
                 {hasProno && (
-                  <div style={{ padding: '8px 16px', background: correct ? 'rgba(74,222,128,0.05)' : 'rgba(248,113,113,0.05)', borderTop: `1px solid ${C.border}`, textAlign: 'center' }}>
+                  <div style={{ padding: '7px 14px', background: correct ? 'rgba(74,222,128,0.05)' : 'rgba(248,113,113,0.05)', borderTop: `1px solid ${C.border}`, textAlign: 'center' }}>
                     <span style={{ fontSize: 11, color: correct ? C.green : C.red, fontWeight: 600 }}>
-                      Tu avais pronostiqué : <strong>{prono.vainqueur === 'home' ? game.home_name : game.away_name}</strong>
+                      Tu avais choisi : {prono.vainqueur === 'home' ? game.home_name : game.away_name}
                     </span>
                   </div>
                 )}
@@ -438,15 +430,7 @@ export default function Matches({ profile }) {
       )}
 
       {toast && (
-        <div style={{
-          position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)',
-          background: toast.type === 'error' ? C.red : C.lilac,
-          color: '#fff',
-          padding: '12px 24px', borderRadius: 20, fontWeight: 700, fontSize: 14,
-          fontFamily: "'Outfit', sans-serif", zIndex: 9999,
-          boxShadow: `0 8px 32px rgba(0,0,0,0.4)`, whiteSpace: 'nowrap',
-          animation: 'slideUp 0.3s ease',
-        }}>{toast.msg}</div>
+        <div style={{ position: 'fixed', bottom: 100, left: '50%', transform: 'translateX(-50%)', background: toast.type === 'error' ? C.red : C.lilac, color: '#fff', padding: '12px 24px', borderRadius: 20, fontWeight: 700, fontSize: 14, fontFamily: "'Outfit', sans-serif", zIndex: 9999, boxShadow: `0 8px 32px rgba(0,0,0,0.4)`, whiteSpace: 'nowrap', animation: 'slideUp 0.3s ease' }}>{toast.msg}</div>
       )}
     </div>
   );
